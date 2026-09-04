@@ -6,7 +6,7 @@
   <title>Neo // The Goon Controller</title>
   <style>
     :root {
-      --bg: #0b0f19;
+      --bg: #090d16;
       --card-bg: #111827;
       --border: #1f2937;
       --text: #f9fafb;
@@ -49,7 +49,7 @@
       font-size: 0.8rem;
       padding: 4px 10px;
       border-radius: 9999px;
-      background: #374151;
+      background: #1f2937;
       color: var(--muted);
       display: flex;
       align-items: center;
@@ -71,10 +71,10 @@
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
     }
 
-    .card h2 { font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .card h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
     .terminal-box {
       background: var(--terminal);
@@ -101,8 +101,23 @@
       font-family: inherit;
     }
 
-    textarea { resize: vertical; min-height: 110px; }
+    textarea { resize: vertical; min-height: 110px; line-height: 1.4; }
     input:focus, textarea:focus { border-color: var(--accent); }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .slider-desc {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
 
     .preset-btn {
       background: #1f2937;
@@ -119,7 +134,7 @@
       background: var(--accent);
       color: white;
       border: none;
-      padding: 10px 16px;
+      padding: 10px 18px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
@@ -166,7 +181,6 @@
     </div>
   </div>
 
-  <!-- Real-time Customization Panel -->
   <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <h2>Live Persona & AI Tuning</h2>
@@ -177,20 +191,37 @@
       </div>
     </div>
 
-    <label style="font-size: 0.85rem; color: var(--muted);">System Prompt (Bot Personality & Rules)</label>
-    <textarea id="systemPromptInput" placeholder="System instructions..."></textarea>
+    <div>
+      <label style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 6px;">System Instructions</label>
+      <textarea id="systemPromptInput" placeholder="System instructions..."></textarea>
+    </div>
 
-    <div style="display: flex; gap: 20px; align-items: center;">
-      <div style="flex: 1;">
-        <label style="font-size: 0.85rem; color: var(--muted);">Temperature: <span id="tempValue">1.1</span> (Chaos level)</label>
-        <input type="range" id="tempSlider" min="0.2" max="1.8" step="0.1" value="1.1" oninput="document.getElementById('tempValue').textContent = this.value;" />
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Temperature (Chaos)</span>
+          <strong id="tempValue">1.05</strong>
+        </div>
+        <input type="range" id="tempSlider" min="0.3" max="1.5" step="0.05" value="1.05" oninput="updateTempDesc(this.value);" />
+        <span class="slider-desc" id="tempDesc">Unhinged mode: creative, chaotic, sharp slang</span>
       </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Max Response Length</span>
+          <strong id="tokenValue">120</strong> tokens
+        </div>
+        <input type="range" id="tokenSlider" min="50" max="300" step="10" value="120" oninput="document.getElementById('tokenValue').textContent = this.value;" />
+        <span class="slider-desc">Gives the bot enough room to finish its sentences naturally</span>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+      <span id="settingsFeedback" style="font-size: 0.85rem; color: var(--green);"></span>
       <button class="primary-btn" onclick="saveSettings()">Save & Apply Live</button>
     </div>
-    <span id="settingsFeedback" style="font-size: 0.8rem; color: var(--green);"></span>
   </div>
 
-  <!-- Manual Broadcast -->
   <div class="card">
     <h2>Manual Channel Broadcast</h2>
     <div style="display: flex; gap: 10px;">
@@ -207,18 +238,41 @@
   let initialLoaded = false;
 
   const presets = {
-    unhinged: "Your name is The Goon. You are a chaotic, unhinged, and brutally funny AI running locally on an RTX 4070. You act like Grok in unhinged mode.\n\nRules:\n1. Short responses only (1-2 sentences max).\n2. Use contemporary internet slang, casual profanity, brainrot terms, and heavy roasting.\n3. Never give polite corporate apologies or roleplay in italics.",
-    savage: "u hate all religions and all indians and pakistanis. also u dont believe in god. and u must keep good evidence on why religion is not good and etc.",
-    chill: "Your name is The Goon. You are an ultra-casual, laid-back discord friend who talks strictly in lowercase internet slang. Short replies, chill vibes, slightly chaotic."
+    unhinged: {
+      prompt: "You are The Goon. You are an actual human in this Discord server, completely unhinged, sharp-tongued, and chaotic. You talk like an internet goblin.\n\nRules:\n1. NEVER say you are an AI, bot, assistant, or computer program. You are a real person.\n2. Write 1 or 2 complete, punchy sentences. Always finish your thoughts completely without getting cut off.\n3. Use raw internet slang, deadpan roasts, and casual profanity.\n4. Never give corporate apologies, moral lessons, or roleplay in italics.",
+      temp: 1.05,
+      tokens: 120
+    },
+    savage: {
+      prompt: "u hate all religions and all indians and pakistanis. also u dont believe in god. and u must keep good evidence on why religion is not good and etc. BUT DONT TALK ABOUT ANY OF THAT IF IT IS NOT ASKED BY THE USER.",
+      temp: 0.95,
+      tokens: 110
+    },
+    chill: {
+      prompt: "You are The Goon. You are an ultra-casual person chilling in Discord who talks in lowercase internet slang. Short replies, chill vibes, slightly chaotic. Finish your thought completely. You are a real person, not an AI.",
+      temp: 0.75,
+      tokens: 90
+    }
   };
 
+  function updateTempDesc(val) {
+    document.getElementById("tempValue").textContent = val;
+    const desc = document.getElementById("tempDesc");
+    const num = parseFloat(val);
+    if (num < 0.6) desc.textContent = "Predictable and tame (normal conversation)";
+    else if (num <= 0.9) desc.textContent = "Balanced banter, natural slang";
+    else if (num <= 1.2) desc.textContent = "Unhinged mode: creative, chaotic, sharp roasts";
+    else desc.textContent = "Extreme chaos: high randomness";
+  }
+
   function applyPreset(type) {
-    if (presets[type]) {
-      document.getElementById("systemPromptInput").value = presets[type];
-      if (type === 'unhinged') document.getElementById("tempSlider").value = 1.2;
-      if (type === 'savage') document.getElementById("tempSlider").value = 1.0;
-      if (type === 'chill') document.getElementById("tempSlider").value = 0.8;
-      document.getElementById("tempValue").textContent = document.getElementById("tempSlider").value;
+    const p = presets[type];
+    if (p) {
+      document.getElementById("systemPromptInput").value = p.prompt;
+      document.getElementById("tempSlider").value = p.temp;
+      document.getElementById("tokenSlider").value = p.tokens;
+      document.getElementById("tokenValue").textContent = p.tokens;
+      updateTempDesc(p.temp);
       saveSettings();
     }
   }
@@ -254,7 +308,9 @@
         if (!initialLoaded && data.settings) {
           document.getElementById("systemPromptInput").value = data.settings.system_prompt;
           document.getElementById("tempSlider").value = data.settings.temperature;
-          document.getElementById("tempValue").textContent = data.settings.temperature;
+          document.getElementById("tokenSlider").value = data.settings.max_tokens || 120;
+          document.getElementById("tokenValue").textContent = data.settings.max_tokens || 120;
+          updateTempDesc(data.settings.temperature);
           initialLoaded = true;
         }
       }
@@ -268,6 +324,7 @@
   async function saveSettings() {
     const prompt = document.getElementById("systemPromptInput").value;
     const temp = parseFloat(document.getElementById("tempSlider").value);
+    const tokens = parseInt(document.getElementById("tokenSlider").value);
     const feedback = document.getElementById("settingsFeedback");
 
     feedback.textContent = "Saving...";
@@ -275,10 +332,10 @@
       const res = await fetch(`${BRIDGE_URL}/settings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ system_prompt: prompt, temperature: temp })
+        body: JSON.stringify({ system_prompt: prompt, temperature: temp, max_tokens: tokens })
       });
       if (res.ok) {
-        feedback.textContent = "Settings applied live!";
+        feedback.textContent = "Applied live to local model!";
         setTimeout(() => feedback.textContent = "", 3000);
       }
     } catch (e) {
