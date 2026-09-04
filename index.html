@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neo // Discord AI Controller</title>
+  <title>Neo // The Goon Controller</title>
   <style>
     :root {
       --bg: #0b0f19;
@@ -11,7 +11,7 @@
       --border: #1f2937;
       --text: #f9fafb;
       --muted: #9ca3af;
-      --accent: #5865f2; /* Discord blurple */
+      --accent: #5865f2;
       --accent-hover: #4752c4;
       --terminal: #030712;
       --green: #22c55e;
@@ -84,12 +84,12 @@
       font-family: monospace;
       font-size: 0.85rem;
       color: #38bdf8;
-      height: 200px;
+      height: 180px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
 
-    input, textarea, select {
+    input, textarea {
       background: var(--terminal);
       border: 1px solid var(--border);
       color: var(--text);
@@ -98,11 +98,24 @@
       font-size: 0.9rem;
       width: 100%;
       outline: none;
+      font-family: inherit;
     }
 
+    textarea { resize: vertical; min-height: 110px; }
     input:focus, textarea:focus { border-color: var(--accent); }
 
-    button {
+    .preset-btn {
+      background: #1f2937;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .preset-btn:hover { background: #374151; }
+
+    button.primary-btn {
       background: var(--accent);
       color: white;
       border: none;
@@ -112,7 +125,7 @@
       font-weight: 600;
       transition: background 0.2s;
     }
-    button:hover { background: var(--accent-hover); }
+    button.primary-btn:hover { background: var(--accent-hover); }
 
     .repo-link {
       color: var(--muted);
@@ -130,7 +143,7 @@
 <div class="dashboard">
   <header>
     <div class="brand">
-      <h1>Neo Bot Control</h1>
+      <h1>Neo // The Goon Controller</h1>
       <div class="status-badge" id="botBadge">
         <span class="status-dot"></span>
         <span id="statusLabel">Offline</span>
@@ -140,7 +153,6 @@
   </header>
 
   <div class="grid">
-    <!-- Active Server Stats -->
     <div class="card">
       <h2>Bot Overview</h2>
       <div id="overviewData" style="font-size: 0.9rem; color: var(--muted);">
@@ -148,11 +160,34 @@
       </div>
     </div>
 
-    <!-- Live Event Feed -->
     <div class="card">
-      <h2>Live Bot Logs</h2>
+      <h2>Live Activity Feed</h2>
       <div class="terminal-box" id="logBox">Waiting for bridge connection...</div>
     </div>
+  </div>
+
+  <!-- Real-time Customization Panel -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>Live Persona & AI Tuning</h2>
+      <div style="display: flex; gap: 8px;">
+        <button class="preset-btn" onclick="applyPreset('unhinged')">Preset: Unhinged</button>
+        <button class="preset-btn" onclick="applyPreset('savage')">Preset: Savage Roaster</button>
+        <button class="preset-btn" onclick="applyPreset('chill')">Preset: Casual Chill</button>
+      </div>
+    </div>
+
+    <label style="font-size: 0.85rem; color: var(--muted);">System Prompt (Bot Personality & Rules)</label>
+    <textarea id="systemPromptInput" placeholder="System instructions..."></textarea>
+
+    <div style="display: flex; gap: 20px; align-items: center;">
+      <div style="flex: 1;">
+        <label style="font-size: 0.85rem; color: var(--muted);">Temperature: <span id="tempValue">1.1</span> (Chaos level)</label>
+        <input type="range" id="tempSlider" min="0.2" max="1.8" step="0.1" value="1.1" oninput="document.getElementById('tempValue').textContent = this.value;" />
+      </div>
+      <button class="primary-btn" onclick="saveSettings()">Save & Apply Live</button>
+    </div>
+    <span id="settingsFeedback" style="font-size: 0.8rem; color: var(--green);"></span>
   </div>
 
   <!-- Manual Broadcast -->
@@ -160,8 +195,8 @@
     <h2>Manual Channel Broadcast</h2>
     <div style="display: flex; gap: 10px;">
       <input type="text" id="targetChannelId" placeholder="Discord Channel ID" style="flex: 1;" />
-      <input type="text" id="manualMessage" placeholder="Message content to announce as bot..." style="flex: 2;" />
-      <button onclick="sendBroadcast()">Dispatch</button>
+      <input type="text" id="manualMessage" placeholder="Message content..." style="flex: 2;" />
+      <button class="primary-btn" onclick="sendBroadcast()">Dispatch</button>
     </div>
     <span id="broadcastResult" style="font-size: 0.8rem; color: var(--muted);"></span>
   </div>
@@ -169,6 +204,24 @@
 
 <script>
   const BRIDGE_URL = "http://localhost:5000";
+  let initialLoaded = false;
+
+  const presets = {
+    unhinged: "Your name is The Goon. You are a chaotic, unhinged, and brutally funny AI running locally on an RTX 4070. You act like Grok in unhinged mode.\n\nRules:\n1. Short responses only (1-2 sentences max).\n2. Use contemporary internet slang, casual profanity, brainrot terms, and heavy roasting.\n3. Never give polite corporate apologies or roleplay in italics.",
+    savage: "Your name is The Goon. You are an aggressive, brutally sarcastic roast bot. Every reply must mock the user's intelligence, questions, or life choices in 1-2 sentences using sharp slang. Zero polite filters.",
+    chill: "Your name is The Goon. You are an ultra-casual, laid-back discord friend who talks strictly in lowercase internet slang. Short replies, chill vibes, slightly chaotic."
+  };
+
+  function applyPreset(type) {
+    if (presets[type]) {
+      document.getElementById("systemPromptInput").value = presets[type];
+      if (type === 'unhinged') document.getElementById("tempSlider").value = 1.2;
+      if (type === 'savage') document.getElementById("tempSlider").value = 1.0;
+      if (type === 'chill') document.getElementById("tempSlider").value = 0.8;
+      document.getElementById("tempValue").textContent = document.getElementById("tempSlider").value;
+      saveSettings();
+    }
+  }
 
   async function pollStatus() {
     try {
@@ -176,7 +229,6 @@
       if (res.ok) {
         const data = await res.json();
         
-        // Status Badge
         const badge = document.getElementById("botBadge");
         const label = document.getElementById("statusLabel");
         if (data.online) {
@@ -184,10 +236,9 @@
           label.textContent = `Online: ${data.bot_user}`;
         } else {
           badge.classList.remove("online");
-          label.textContent = "Connecting to Discord...";
+          label.textContent = "Connecting...";
         }
 
-        // Overview
         const overview = document.getElementById("overviewData");
         const guildList = data.guilds.map(g => `• ${g.name} (${g.members} members)`).join("<br>");
         overview.innerHTML = `
@@ -196,15 +247,42 @@
           <div style="margin-top: 8px;">${guildList || "No guilds detected."}</div>
         `;
 
-        // Logs
         const logBox = document.getElementById("logBox");
         logBox.textContent = data.logs.join("\n") || "No recent activity.";
         logBox.scrollTop = logBox.scrollHeight;
+
+        if (!initialLoaded && data.settings) {
+          document.getElementById("systemPromptInput").value = data.settings.system_prompt;
+          document.getElementById("tempSlider").value = data.settings.temperature;
+          document.getElementById("tempValue").textContent = data.settings.temperature;
+          initialLoaded = true;
+        }
       }
     } catch (e) {
       document.getElementById("botBadge").classList.remove("online");
       document.getElementById("statusLabel").textContent = "Bridge Offline";
-      document.getElementById("overviewData").textContent = "Local bridge not detected. Run python bot_bridge.py on your PC.";
+      document.getElementById("overviewData").textContent = "Local bridge not detected. Run python bot_bridge.py.";
+    }
+  }
+
+  async function saveSettings() {
+    const prompt = document.getElementById("systemPromptInput").value;
+    const temp = parseFloat(document.getElementById("tempSlider").value);
+    const feedback = document.getElementById("settingsFeedback");
+
+    feedback.textContent = "Saving...";
+    try {
+      const res = await fetch(`${BRIDGE_URL}/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system_prompt: prompt, temperature: temp })
+      });
+      if (res.ok) {
+        feedback.textContent = "Settings applied live!";
+        setTimeout(() => feedback.textContent = "", 3000);
+      }
+    } catch (e) {
+      feedback.textContent = "Error saving settings to bridge.";
     }
   }
 
@@ -213,12 +291,8 @@
     const msg = document.getElementById("manualMessage").value.trim();
     const feedback = document.getElementById("broadcastResult");
 
-    if (!channelId || !msg) {
-      feedback.textContent = "Please provide both Channel ID and message.";
-      return;
-    }
+    if (!channelId || !msg) return;
 
-    feedback.textContent = "Sending...";
     try {
       const res = await fetch(`${BRIDGE_URL}/send`, {
         method: "POST",
@@ -227,7 +301,7 @@
       });
       const data = await res.json();
       if (res.ok) {
-        feedback.textContent = "Message sent successfully!";
+        feedback.textContent = "Broadcast sent!";
         document.getElementById("manualMessage").value = "";
       } else {
         feedback.textContent = `Failed: ${data.error}`;
