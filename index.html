@@ -2,83 +2,444 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Dashboard</title>
+  <title>Ultra-Squishy Jelly Physics Engine</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
     body {
+      background: #0f1016;
+      color: #e2e8f0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding: 24px;
-      background-color: #f6f8fa;
-      color: #24292f;
-    }
-    header {
+      overflow: hidden;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #d0d7de;
-      padding-bottom: 16px;
-      margin-bottom: 24px;
+      flex-direction: column;
+      height: 100vh;
     }
-    .back-btn {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 14px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #ffffff;
-      background-color: #2da44e;
-      border-radius: 6px;
-      text-decoration: none;
-    }
-    .back-btn:hover {
-      background-color: #2c974b;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    #toolbar {
+      display: flex;
       gap: 16px;
+      align-items: center;
+      background: #181926;
+      padding: 10px 20px;
+      border-bottom: 1px solid #2b2d42;
+      z-index: 10;
+      flex-wrap: wrap;
     }
-    .card {
-      background: #ffffff;
-      border: 1px solid #d0d7de;
-      border-radius: 8px;
-      padding: 16px;
+    .tool-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .card h3 {
-      margin-top: 0;
-      font-size: 14px;
-      color: #57606a;
+    label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+    button {
+      background: #2b2d42;
+      border: 1px solid #3f4263;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s ease;
     }
-    .card .metric {
-      font-size: 28px;
-      font-weight: 700;
-      margin: 8px 0 0 0;
+    button:hover { background: #3b3e5b; border-color: #6366f1; }
+    button.active { background: #6366f1; border-color: #818cf8; }
+    input[type="color"] {
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      background: none;
     }
+    input[type="range"] { accent-color: #6366f1; cursor: pointer; }
+    canvas { flex: 1; display: block; cursor: grab; }
+    canvas:active { cursor: grabbing; }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>Project Dashboard</h1>
-    <!-- Navigation link back to the repository -->
-    <a class="back-btn" href="https://github.com/YOUR-USERNAME/YOUR-REPO-NAME">Back to GitHub Repo</a>
-  </header>
+  <div id="toolbar">
+    <div class="tool-group">
+      <label>Mode:</label>
+      <button id="mode-grab" class="active" onclick="setMode('grab')">Grab & Throw</button>
+      <button id="mode-slice" onclick="setMode('slice')">Slice / Poke</button>
+    </div>
 
-  <main class="grid">
-    <div class="card">
-      <h3>Active Tasks</h3>
-      <p class="metric">12</p>
+    <div class="tool-group">
+      <label>Tint:</label>
+      <input type="color" id="jelly-color" value="#00f2fe" oninput="updateColor(this.value)">
     </div>
-    <div class="card">
-      <h3>Completion Rate</h3>
-      <p class="metric">88%</p>
-    </div>
-    <div class="card">
-      <h3>System Status</h3>
-      <p class="metric" style="color: #2da44e;">Operational</p>
-    </div>
-  </main>
 
+    <div class="tool-group">
+      <label>Pressure:</label>
+      <input type="range" id="pressure" min="20" max="95" step="1" value="55">
+    </div>
+
+    <div class="tool-group">
+      <label>Gravity:</label>
+      <input type="range" id="gravity" min="0" max="1.5" step="0.05" value="0.45">
+    </div>
+
+    <div class="tool-group">
+      <label>Elasticity:</label>
+      <input type="range" id="stiffness" min="0.1" max="1.0" step="0.05" value="0.7">
+    </div>
+
+    <button onclick="resetJelly()">Respawn</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight - 52);
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight - 52;
+    });
+
+    let activeMode = 'grab';
+    function setMode(mode) {
+      activeMode = mode;
+      document.getElementById('mode-grab').classList.toggle('active', mode === 'grab');
+      document.getElementById('mode-slice').classList.toggle('active', mode === 'slice');
+    }
+
+    let baseColor = '#00f2fe';
+    function updateColor(val) {
+      baseColor = val;
+    }
+
+    // Physics Engine Classes
+    class Point {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.oldx = x;
+        this.oldy = y;
+        this.pinned = false;
+      }
+      update(friction, gravity) {
+        if (this.pinned) return;
+        const vx = (this.x - this.oldx) * friction;
+        const vy = (this.y - this.oldy) * friction;
+        this.oldx = this.x;
+        this.oldy = this.y;
+        this.x += vx;
+        this.y += vy + gravity;
+      }
+      constrain(width, height) {
+        if (this.pinned) return;
+        const bounce = 0.55;
+        const friction = 0.9;
+
+        if (this.y > height - 12) {
+          const vy = (this.y - this.oldy) * bounce;
+          this.y = height - 12;
+          this.oldy = this.y + vy;
+          this.oldx += (this.x - this.oldx) * (1 - friction);
+        } else if (this.y < 12) {
+          const vy = (this.y - this.oldy) * bounce;
+          this.y = 12;
+          this.oldy = this.y + vy;
+        }
+
+        if (this.x > width - 12) {
+          const vx = (this.x - this.oldx) * bounce;
+          this.x = width - 12;
+          this.oldx = this.x + vx;
+        } else if (this.x < 12) {
+          const vx = (this.x - this.oldx) * bounce;
+          this.x = 12;
+          this.oldx = this.x + vx;
+        }
+      }
+    }
+
+    class Spring {
+      constructor(p1, p2, stiffness, length = null) {
+        this.p1 = p1;
+        this.p2 = p2;
+        this.stiffness = stiffness;
+        this.length = length !== null ? length : Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      }
+      resolve() {
+        const dx = this.p2.x - this.p1.x;
+        const dy = this.p2.y - this.p1.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist === 0) return;
+        const diff = (dist - this.length) / dist;
+        const offsetX = dx * 0.5 * diff * this.stiffness;
+        const offsetY = dy * 0.5 * diff * this.stiffness;
+
+        if (!this.p1.pinned) {
+          this.p1.x += offsetX;
+          this.p1.y += offsetY;
+        }
+        if (!this.p2.pinned) {
+          this.p2.x -= offsetX;
+          this.p2.y -= offsetY;
+        }
+      }
+    }
+
+    const NUM_OUTER = 32;
+    let outerPoints = [];
+    let centerPoint = null;
+    let springs = [];
+    let defaultArea = 0;
+
+    function resetJelly() {
+      outerPoints = [];
+      springs = [];
+      const radius = 100;
+      const startX = width / 2;
+      const startY = height / 3;
+
+      centerPoint = new Point(startX, startY);
+
+      for (let i = 0; i < NUM_OUTER; i++) {
+        const angle = (i / NUM_OUTER) * Math.PI * 2;
+        const px = startX + Math.cos(angle) * radius;
+        const py = startY + Math.sin(angle) * radius;
+        outerPoints.push(new Point(px, py));
+      }
+
+      // Structural Hull Springs
+      for (let i = 0; i < NUM_OUTER; i++) {
+        const next = outerPoints[(i + 1) % NUM_OUTER];
+        springs.push(new Spring(outerPoints[i], next, 0.85));
+      }
+
+      // Internal Cross Braces & Radians
+      for (let i = 0; i < NUM_OUTER; i++) {
+        springs.push(new Spring(outerPoints[i], centerPoint, 0.45));
+        const opposite = outerPoints[(i + Math.floor(NUM_OUTER / 2)) % NUM_OUTER];
+        springs.push(new Spring(outerPoints[i], opposite, 0.3));
+      }
+
+      defaultArea = Math.PI * radius * radius;
+    }
+
+    // Volume calculation via Shoelace formula
+    function getCurrentArea() {
+      let area = 0;
+      for (let i = 0; i < NUM_OUTER; i++) {
+        const j = (i + 1) % NUM_OUTER;
+        area += outerPoints[i].x * outerPoints[j].y;
+        area -= outerPoints[j].x * outerPoints[i].y;
+      }
+      return Math.abs(area) * 0.5;
+    }
+
+    // Mouse Interaction
+    const mouse = { x: 0, y: 0, px: 0, py: 0, down: false, targetPoint: null, grabbedPoints: [] };
+
+    canvas.addEventListener('mousedown', (e) => {
+      mouse.down = true;
+      mouse.x = e.clientX;
+      mouse.y = e.clientY - 52;
+      mouse.px = mouse.x;
+      mouse.py = mouse.y;
+
+      if (activeMode === 'grab') {
+        mouse.grabbedPoints = [];
+        const grabRadius = 80;
+        
+        [...outerPoints, centerPoint].forEach(p => {
+          const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+          if (d < grabRadius) {
+            mouse.grabbedPoints.push({
+              point: p,
+              ox: p.x - mouse.x,
+              oy: p.y - mouse.y,
+              factor: 1 - (d / grabRadius)
+            });
+          }
+        });
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY - 52;
+
+      if (mouse.down && activeMode === 'slice') {
+        outerPoints.forEach(p => {
+          const d = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+          if (d < 50) {
+            const angle = Math.atan2(p.y - mouse.y, p.x - mouse.x);
+            const force = (50 - d) * 0.4;
+            p.x += Math.cos(angle) * force;
+            p.y += Math.sin(angle) * force;
+          }
+        });
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      mouse.down = false;
+      mouse.grabbedPoints = [];
+    });
+
+    function physicsStep() {
+      const gravity = parseFloat(document.getElementById('gravity').value);
+      const pressureMultiplier = parseFloat(document.getElementById('pressure').value) * 0.001;
+      const stiffness = parseFloat(document.getElementById('stiffness').value);
+      const friction = 0.985;
+
+      // Update positions
+      for (let p of outerPoints) p.update(friction, gravity);
+      centerPoint.update(friction, gravity);
+
+      // Mouse Drag with Velocity Injection
+      if (mouse.down && mouse.grabbedPoints.length > 0) {
+        mouse.grabbedPoints.forEach(item => {
+          const targetX = mouse.x + item.ox;
+          const targetY = mouse.y + item.oy;
+          item.point.x += (targetX - item.point.x) * (0.35 + item.factor * 0.45);
+          item.point.y += (targetY - item.point.y) * (0.35 + item.factor * 0.45);
+        });
+      }
+
+      // Pressure calculation (Boyle's law: forces push outward normally along edge normals)
+      const currentArea = getCurrentArea();
+      const deltaArea = defaultArea - currentArea;
+
+      for (let i = 0; i < NUM_OUTER; i++) {
+        const p1 = outerPoints[i];
+        const p2 = outerPoints[(i + 1) % NUM_OUTER];
+
+        // Edge vector
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+
+        // Normal perpendicular vector
+        const nx = -dy;
+        const ny = dx;
+
+        const pressureForce = (deltaArea * pressureMultiplier) / NUM_OUTER;
+
+        p1.x += nx * pressureForce * 0.002;
+        p1.y += ny * pressureForce * 0.002;
+        p2.x += nx * pressureForce * 0.002;
+        p2.y += ny * pressureForce * 0.002;
+      }
+
+      // Spring Relaxation Solvers
+      const SUB_STEPS = 6;
+      for (let s = 0; s < SUB_STEPS; s++) {
+        for (let spring of springs) {
+          spring.stiffness = stiffness;
+          spring.resolve();
+        }
+        for (let p of outerPoints) p.constrain(width, height);
+        centerPoint.constrain(width, height);
+      }
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Base Jelly
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(
+        (outerPoints[NUM_OUTER - 1].x + outerPoints[0].x) / 2,
+        (outerPoints[NUM_OUTER - 1].y + outerPoints[0].y) / 2
+      );
+
+      for (let i = 0; i < NUM_OUTER; i++) {
+        const p1 = outerPoints[i];
+        const p2 = outerPoints[(i + 1) % NUM_OUTER];
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+      }
+      ctx.closePath();
+
+      // Translucent Body Gradient
+      const gradient = ctx.createRadialGradient(
+        centerPoint.x, centerPoint.y - 15, 10,
+        centerPoint.x, centerPoint.y, 160
+      );
+      gradient.addColorStop(0, '#ffffff');
+      gradient.addColorStop(0.2, baseColor);
+      gradient.addColorStop(1, '#001a33');
+
+      ctx.fillStyle = gradient;
+      ctx.shadowColor = baseColor;
+      ctx.shadowBlur = 25;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Inner Gel Core Glow
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.stroke();
+      ctx.restore();
+
+      // Dynamic Jelly Eyes (Follow Mouse & react to momentum)
+      const eyeOffset = 22;
+      const eyeY = -12;
+
+      // Calculate tilt based on center point motion
+      const tilt = Math.atan2(centerPoint.y - centerPoint.oldy, centerPoint.x - centerPoint.oldx) * 0.15;
+
+      drawEye(centerPoint.x - eyeOffset, centerPoint.y + eyeY, tilt);
+      drawEye(centerPoint.x + eyeOffset, centerPoint.y + eyeY, tilt);
+
+      // Dynamic Animated Mouth
+      ctx.beginPath();
+      const mouthSquish = Math.min(10, Math.hypot(centerPoint.x - centerPoint.oldx, centerPoint.y - centerPoint.oldy) * 1.5);
+      ctx.arc(centerPoint.x, centerPoint.y + 16, 10 + mouthSquish, 0.15 * Math.PI, 0.85 * Math.PI, false);
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+    }
+
+    function drawEye(x, y, tilt) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(tilt);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // Pupil tracks mouse position smoothly
+      const angle = Math.atan2(mouse.y - y, mouse.x - x);
+      const dist = Math.min(4, Math.hypot(mouse.x - x, mouse.y - y) * 0.04);
+      const px = Math.cos(angle) * dist;
+      const py = Math.sin(angle) * dist;
+
+      ctx.beginPath();
+      ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0f172a';
+      ctx.fill();
+
+      // Specular eye reflection dot
+      ctx.beginPath();
+      ctx.arc(px - 1.5, py - 1.5, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function loop() {
+      physicsStep();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    resetJelly();
+    loop();
+  </script>
 </body>
 </html>
