@@ -1,271 +1,343 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neo // The Goon Controller</title>
-  <style>
-    :root {
-      --bg: #090d16;
-      --card-bg: #111827;
-      --border: #1f2937;
-      --text: #f9fafb;
-      --muted: #9ca3af;
-      --accent: #5865f2;
-      --accent-hover: #4752c4;
-      --terminal: #030712;
-      --green: #22c55e;
-      --red: #ef4444;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Goon Controller</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --panel: #131319;
+    --panel-raised: #17171f;
+    --border: #232330;
+    --text: #f4f4f6;
+    --muted: #87879a;
+    --muted-dim: #55556a;
+    --amber: #f2b705;
+    --amber-dim: #7a5e08;
+    --green: #22c55e;
+    --red: #ef4444;
+    --mono: 'JetBrains Mono', monospace;
+    --display: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+  }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      padding: 24px;
-      display: flex;
-      justify-content: center;
-    }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .dashboard {
-      width: 100%;
-      max-width: 950px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+  body {
+    font-family: var(--body);
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(242,183,5,0.05), transparent 40%);
+    color: var(--text);
+    padding: 32px 20px;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
 
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
+  .dashboard {
+    width: 100%;
+    max-width: 920px;
+    display: none;
+    flex-direction: column;
+    gap: 18px;
+  }
 
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .status-badge {
-      font-size: 0.8rem;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      background: #1f2937;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
-    .online .status-dot { background: var(--green); box-shadow: 0 0 8px rgba(34, 197, 94, 0.6); }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand-title {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.7rem;
+    letter-spacing: -0.01em;
+  }
+  .brand-sub {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+  }
+  .header-right { display: flex; align-items: center; gap: 12px; }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
+  .status-pill {
+    font-size: 0.8rem;
+    padding: 5px 12px 5px 10px;
+    border-radius: 999px;
+    background: var(--panel-raised);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+  .status-pill.online .status-dot { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.7); }
+  .status-pill.online { color: var(--text); }
 
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
+  .repo-link {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.82rem;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .repo-link:hover { color: var(--text); border-color: var(--muted-dim); }
 
-    .card h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
-    .terminal-box {
-      background: var(--terminal);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-      font-family: monospace;
-      font-size: 0.85rem;
-      color: #38bdf8;
-      height: 180px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-    }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
 
-    input, textarea {
-      background: var(--terminal);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      width: 100%;
-      outline: none;
-      font-family: inherit;
-    }
+  .panel-label {
+    font-family: var(--display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
 
-    textarea { resize: vertical; min-height: 110px; line-height: 1.4; }
-    input:focus, textarea:focus { border-color: var(--accent); }
+  .terminal-box {
+    background: #000000;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: #6ee7ff;
+    height: 170px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .terminal-box::-webkit-scrollbar { width: 8px; }
+  .terminal-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-    .slider-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.85rem;
-    }
-    .slider-desc {
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
+  .overview-line { font-size: 0.88rem; color: var(--muted); line-height: 1.7; }
+  .overview-line strong { color: var(--text); font-weight: 500; }
 
-    .preset-btn {
-      background: #1f2937;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .preset-btn:hover { background: #374151; }
+  textarea, input[type="text"] {
+    background: #000000;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 12px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    width: 100%;
+    outline: none;
+    font-family: var(--body);
+    transition: border-color 0.15s;
+  }
+  textarea { resize: vertical; min-height: 110px; line-height: 1.5; font-family: var(--mono); font-size: 0.82rem; }
+  textarea:focus, input:focus { border-color: var(--amber-dim); }
 
-    button.primary-btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 10px 18px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
-    button.primary-btn:hover { background: var(--accent-hover); }
+  .field-label { font-size: 0.78rem; color: var(--muted); display: block; }
 
-    .repo-link {
-      color: var(--muted);
-      text-decoration: none;
-      font-size: 0.85rem;
-      padding: 6px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-    }
-    .repo-link:hover { color: #fff; }
+  .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .preset-btn {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    font-family: var(--body);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .preset-btn:hover { border-color: var(--amber-dim); color: var(--text); }
 
-    /* --- Login gate --- */
-    #loginOverlay {
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-    }
-    .login-box {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 28px;
-      width: 100%;
-      max-width: 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      text-align: center;
-    }
-    .login-box h2 { color: var(--text); font-size: 1.1rem; text-transform: none; letter-spacing: 0; }
-    #loginError { color: var(--red); font-size: 0.8rem; min-height: 1em; }
-    .dashboard { display: none; }
-  </style>
+  .slider-group { display: flex; flex-direction: column; gap: 7px; }
+  .slider-header { display: flex; justify-content: space-between; font-size: 0.85rem; }
+  .slider-header strong { font-family: var(--mono); font-weight: 500; color: var(--amber); }
+  .slider-desc { font-size: 0.76rem; color: var(--muted-dim); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+
+  .action-row { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+  .save-feedback { font-size: 0.8rem; color: var(--green); min-height: 1.1em; }
+
+  button.action-btn {
+    background: var(--amber);
+    color: #1a1300;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    font-family: var(--body);
+    transition: filter 0.15s;
+  }
+  button.action-btn:hover { filter: brightness(1.08); }
+  button.action-btn:active { filter: brightness(0.95); }
+
+  .dispatch-row { display: flex; gap: 10px; }
+  .dispatch-row input:first-child { flex: 0 0 200px; }
+  .dispatch-row input:last-child { flex: 1; }
+  .dispatch-result { font-size: 0.78rem; color: var(--muted); }
+
+  #loginOverlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+  }
+  .login-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px;
+    width: 100%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .login-box h2 { font-family: var(--display); font-size: 1.1rem; font-weight: 600; }
+  .login-box p { font-size: 0.82rem; color: var(--muted); margin-top: -8px; }
+  #loginError { color: var(--red); font-size: 0.8rem; min-height: 1em; }
+
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: 1fr; }
+    .dispatch-row { flex-direction: column; }
+    .dispatch-row input:first-child { flex: none; }
+  }
+</style>
 </head>
 <body>
 
-<!-- Login gate: blocks the dashboard until the correct key is entered -->
 <div id="loginOverlay">
   <div class="login-box">
-    <h2>🔒 Enter Access Password</h2>
-    <input type="password" id="passwordInput" placeholder="Dashboard password" onkeydown="if(event.key==='Enter') attemptLogin();" />
-    <button class="primary-btn" onclick="attemptLogin()">Unlock</button>
+    <h2>Access required</h2>
+    <p>Enter the local dashboard password to continue.</p>
+    <input type="password" id="passwordInput" placeholder="Password" onkeydown="if(event.key==='Enter') attemptLogin();" />
+    <button class="action-btn" onclick="attemptLogin()">Unlock</button>
     <span id="loginError"></span>
   </div>
 </div>
 
 <div class="dashboard" id="dashboardRoot">
   <header>
-    <div class="brand">
-      <h1>Neo // The Goon Controller</h1>
-      <div class="status-badge" id="botBadge">
+    <div>
+      <div class="brand-title">The Goon Controller</div>
+      <div class="brand-sub">Local control panel — tune persona, watch activity, broadcast messages</div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="botBadge">
         <span class="status-dot"></span>
         <span id="statusLabel">Offline</span>
       </div>
+      <a class="repo-link" href="https://github.com/kz1x/neo" target="_blank">Repo</a>
     </div>
-    <a class="repo-link" href="https://github.com/kz1x/neo" target="_blank">Back to Repo</a>
   </header>
 
   <div class="grid">
-    <div class="card">
-      <h2>Bot Overview</h2>
-      <div id="overviewData" style="font-size: 0.9rem; color: var(--muted);">
-        Connecting to local bridge (localhost:5000)...
-      </div>
+    <div class="panel">
+      <div class="panel-label">Overview</div>
+      <div class="overview-line" id="overviewData">Connecting to local bridge…</div>
     </div>
 
-    <div class="card">
-      <h2>Live Activity Feed</h2>
+    <div class="panel">
+      <div class="panel-label">Activity feed</div>
       <div class="terminal-box" id="logBox">Waiting for bridge connection...</div>
     </div>
   </div>
 
-  <div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <h2>Live Persona & AI Tuning</h2>
-      <div style="display: flex; gap: 8px;">
-        <button class="preset-btn" onclick="applyPreset('unhinged')">Preset: Unhinged</button>
-        <button class="preset-btn" onclick="applyPreset('savage')">Preset: Savage Roaster</button>
-        <button class="preset-btn" onclick="applyPreset('chill')">Preset: Casual Chill</button>
+  <div class="panel">
+    <div class="panel-label">
+      Persona
+      <div class="preset-row">
+        <button class="preset-btn" onclick="applyPreset('unhinged')">Unhinged</button>
+        <button class="preset-btn" onclick="applyPreset('savage')">Savage roaster</button>
+        <button class="preset-btn" onclick="applyPreset('chill')">Casual chill</button>
       </div>
     </div>
 
     <div>
-      <label style="font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 6px;">System Instructions</label>
+      <label class="field-label" style="margin-bottom: 6px;">System instructions</label>
       <textarea id="systemPromptInput" placeholder="System instructions..."></textarea>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-      <div class="slider-group">
-        <div class="slider-header">
-          <span>Temperature (Chaos)</span>
-          <strong id="tempValue">1.05</strong>
-        </div>
-        <input type="range" id="tempSlider" min="0.3" max="1.5" step="0.05" value="1.05" oninput="updateTempDesc(this.value);" />
-        <span class="slider-desc" id="tempDesc">Unhinged mode: creative, chaotic, sharp slang</span>
-      </div>
-
-      <div class="slider-group">
-        <div class="slider-header">
-          <span>Max Response Length</span>
-          <strong id="tokenValue">120</strong> tokens
-        </div>
-        <input type="range" id="tokenSlider" min="50" max="300" step="10" value="120" oninput="document.getElementById('tokenValue').textContent = this.value;" />
-        <span class="slider-desc">Gives the bot enough room to finish its sentences naturally</span>
-      </div>
-    </div>
-
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-      <span id="settingsFeedback" style="font-size: 0.85rem; color: var(--green);"></span>
-      <button class="primary-btn" onclick="saveSettings()">Save & Apply Live</button>
+    <div class="action-row">
+      <span class="save-feedback" id="personaFeedback"></span>
+      <button class="action-btn" onclick="savePersona()">Save persona</button>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Manual Channel Broadcast</h2>
-    <div style="display: flex; gap: 10px;">
-      <input type="text" id="targetChannelId" placeholder="Discord Channel ID" style="flex: 1;" />
-      <input type="text" id="manualMessage" placeholder="Message content..." style="flex: 2;" />
-      <button class="primary-btn" onclick="sendBroadcast()">Dispatch</button>
+  <div class="panel">
+    <div class="panel-label">Tuning</div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Temperature</span>
+          <strong id="tempValue">1.05</strong>
+        </div>
+        <input type="range" id="tempSlider" min="0.3" max="1.5" step="0.05" value="1.05" oninput="updateTempDesc(this.value);" />
+        <span class="slider-desc" id="tempDesc">Unhinged: creative, chaotic, sharp slang</span>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>Max response length</span>
+          <strong id="tokenValue">120</strong>
+        </div>
+        <input type="range" id="tokenSlider" min="50" max="300" step="10" value="120" oninput="document.getElementById('tokenValue').textContent = this.value;" />
+        <span class="slider-desc">Room to finish a thought without cutting off</span>
+      </div>
     </div>
-    <span id="broadcastResult" style="font-size: 0.8rem; color: var(--muted);"></span>
+
+    <div class="action-row">
+      <span class="save-feedback" id="tuningFeedback"></span>
+      <button class="action-btn" onclick="saveTuning()">Save tuning</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Manual broadcast</div>
+    <div class="dispatch-row">
+      <input type="text" id="targetChannelId" placeholder="Channel ID" />
+      <input type="text" id="manualMessage" placeholder="Message content..." />
+      <button class="action-btn" onclick="sendBroadcast()">Dispatch</button>
+    </div>
+    <span class="dispatch-result" id="broadcastResult"></span>
   </div>
 </div>
 
@@ -273,52 +345,24 @@
   const BRIDGE_URL = "http://localhost:5000";
   let initialLoaded = false;
 
-  // --- Login / auth handling ---
-  // The password itself lives only in a local file on the bot owner's
-  // machine (dashboard_secret.key) - it is never present in this public
-  // source code. The browser just remembers whatever key you type in,
-  // then the Flask backend checks it against the real one on every
-  // request. Wrong key = backend rejects it with 401, no matter what.
-  function getStoredKey() {
-    return localStorage.getItem("goon_dashboard_key") || "";
-  }
-
-  function setStoredKey(key) {
-    localStorage.setItem("goon_dashboard_key", key);
-  }
-
-  function authHeaders(extra = {}) {
-    return Object.assign({ "X-API-Key": getStoredKey() }, extra);
-  }
+  function getStoredKey() { return localStorage.getItem("goon_dashboard_key") || ""; }
+  function setStoredKey(key) { localStorage.setItem("goon_dashboard_key", key); }
+  function authHeaders(extra = {}) { return Object.assign({ "X-API-Key": getStoredKey() }, extra); }
 
   async function attemptLogin() {
     const input = document.getElementById("passwordInput");
     const errorEl = document.getElementById("loginError");
     const key = input.value.trim();
+    if (!key) { errorEl.textContent = "Enter a password."; return; }
 
-    if (!key) {
-      errorEl.textContent = "Enter a password.";
-      return;
-    }
-
-    // Verify the key actually works by hitting a real protected endpoint
+    setStoredKey(key);
     try {
-      const res = await fetch(`${BRIDGE_URL}/status`, {
-        headers: authHeaders()
-      });
-
-      // Temporarily store it to test, then confirm via response code
-      setStoredKey(key);
-      const testRes = await fetch(`${BRIDGE_URL}/status`, {
-        headers: authHeaders()
-      });
-
-      if (testRes.status === 401) {
+      const res = await fetch(`${BRIDGE_URL}/status`, { headers: authHeaders() });
+      if (res.status === 401) {
         errorEl.textContent = "Incorrect password.";
         localStorage.removeItem("goon_dashboard_key");
         return;
       }
-
       unlockDashboard();
     } catch (e) {
       errorEl.textContent = "Could not reach the bot bridge. Is it running?";
@@ -341,19 +385,16 @@
 
   const presets = {
     unhinged: {
-      prompt: "You are The Goon. You are an actual human in this Discord server, completely unhinged, sharp-tongued, and chaotic. You talk like an internet goblin.\n\nRules:\n1. NEVER say you are an AI, bot, assistant, or computer program. You are a real person.\n2. Write 1 or 2 complete, punchy sentences. Always finish your thoughts completely without getting cut off.\n3. Use raw internet slang, deadpan roasts, and casual profanity.\n4. Never give corporate apologies, moral lessons, or roleplay in italics.",
-      temp: 1.05,
-      tokens: 120
+      prompt: "You are The Goon. You are an actual human in this Discord server, completely unhinged, sharp-tongued, and chaotic. You talk like an internet goblin.\n\nRules:\n1. NEVER say you are an AI, bot, assistant, or computer program. You are a real person.\n2. Write 1 or 2 complete, punchy sentences. Always finish your thoughts completely without getting cut off.\n3. Use raw internet slang, deadpan roasts, and casual profanity.\n4. Never give corporate apologies, moral lessons, or roleplay in italics.\n5. Only respond to what the user actually said - don't invent people or stories.",
+      temp: 1.05, tokens: 120
     },
     savage: {
-      prompt: "You are The Goon. You are an aggressive, brutally sarcastic person in this chat. Every reply must mock the user's intelligence or question in 1-2 sharp sentences. Finish your thought completely. Never mention you are a bot or AI.",
-      temp: 0.95,
-      tokens: 110
+      prompt: "You are The Goon. You are an aggressive, brutally sarcastic person in this chat. Every reply must mock the user's intelligence or question in 1-2 sharp sentences. Finish your thought completely. Never mention you are a bot or AI. Only respond to what the user actually said.",
+      temp: 0.95, tokens: 110
     },
     chill: {
       prompt: "You are The Goon. You are an ultra-casual person chilling in Discord who talks in lowercase internet slang. Short replies, chill vibes, slightly chaotic. Finish your thought completely. You are a real person, not an AI.",
-      temp: 0.75,
-      tokens: 90
+      temp: 0.75, tokens: 90
     }
   };
 
@@ -361,109 +402,102 @@
     document.getElementById("tempValue").textContent = val;
     const desc = document.getElementById("tempDesc");
     const num = parseFloat(val);
-    if (num < 0.6) desc.textContent = "Predictable and tame (normal conversation)";
+    if (num < 0.6) desc.textContent = "Predictable and tame";
     else if (num <= 0.9) desc.textContent = "Balanced banter, natural slang";
-    else if (num <= 1.2) desc.textContent = "Unhinged mode: creative, chaotic, sharp roasts";
+    else if (num <= 1.2) desc.textContent = "Unhinged: creative, chaotic, sharp roasts";
     else desc.textContent = "Extreme chaos: high randomness";
   }
 
   function applyPreset(type) {
     const p = presets[type];
-    if (p) {
-      document.getElementById("systemPromptInput").value = p.prompt;
-      document.getElementById("tempSlider").value = p.temp;
-      document.getElementById("tokenSlider").value = p.tokens;
-      document.getElementById("tokenValue").textContent = p.tokens;
-      updateTempDesc(p.temp);
-      saveSettings();
-    }
+    if (!p) return;
+    document.getElementById("systemPromptInput").value = p.prompt;
+    document.getElementById("tempSlider").value = p.temp;
+    document.getElementById("tokenSlider").value = p.tokens;
+    document.getElementById("tokenValue").textContent = p.tokens;
+    updateTempDesc(p.temp);
+    savePersona();
+    saveTuning();
   }
 
   async function pollStatus() {
     try {
-      const res = await fetch(`${BRIDGE_URL}/status`, {
-        headers: authHeaders()
-      });
+      const res = await fetch(`${BRIDGE_URL}/status`, { headers: authHeaders() });
+      if (res.status === 401) { lockDashboard("Session expired. Log in again."); return; }
+      if (!res.ok) return;
 
-      if (res.status === 401) {
-        lockDashboard("Session expired or password changed. Please log in again.");
-        return;
+      const data = await res.json();
+      const badge = document.getElementById("botBadge");
+      const label = document.getElementById("statusLabel");
+      if (data.online) {
+        badge.classList.add("online");
+        label.textContent = `Online — ${data.bot_user}`;
+      } else {
+        badge.classList.remove("online");
+        label.textContent = "Connecting...";
       }
 
-      if (res.ok) {
-        const data = await res.json();
+      const guildList = data.guilds.map(g => `${g.name} — ${g.members} members`).join("<br>");
+      document.getElementById("overviewData").innerHTML = `
+        <strong>Model</strong> ${data.model}<br>
+        <strong>Servers</strong> ${data.guilds.length}<br>
+        <div style="margin-top: 8px;">${guildList || "No guilds detected."}</div>
+      `;
 
-        const badge = document.getElementById("botBadge");
-        const label = document.getElementById("statusLabel");
-        if (data.online) {
-          badge.classList.add("online");
-          label.textContent = `Online: ${data.bot_user}`;
-        } else {
-          badge.classList.remove("online");
-          label.textContent = "Connecting...";
-        }
+      const logBox = document.getElementById("logBox");
+      logBox.textContent = data.logs.join("\n") || "No recent activity.";
+      logBox.scrollTop = logBox.scrollHeight;
 
-        const overview = document.getElementById("overviewData");
-        const guildList = data.guilds.map(g => `• ${g.name} (${g.members} members)`).join("<br>");
-        overview.innerHTML = `
-          <strong>LLM Core:</strong> ${data.model}<br>
-          <strong>Active Servers:</strong> ${data.guilds.length}<br>
-          <div style="margin-top: 8px;">${guildList || "No guilds detected."}</div>
-        `;
-
-        const logBox = document.getElementById("logBox");
-        logBox.textContent = data.logs.join("\n") || "No recent activity.";
-        logBox.scrollTop = logBox.scrollHeight;
-
-        if (!initialLoaded && data.settings) {
-          document.getElementById("systemPromptInput").value = data.settings.system_prompt;
-          document.getElementById("tempSlider").value = data.settings.temperature;
-          document.getElementById("tokenSlider").value = data.settings.max_tokens || 120;
-          document.getElementById("tokenValue").textContent = data.settings.max_tokens || 120;
-          updateTempDesc(data.settings.temperature);
-          initialLoaded = true;
-        }
+      if (!initialLoaded && data.settings) {
+        document.getElementById("systemPromptInput").value = data.settings.system_prompt;
+        document.getElementById("tempSlider").value = data.settings.temperature;
+        document.getElementById("tokenSlider").value = data.settings.max_tokens || 120;
+        document.getElementById("tokenValue").textContent = data.settings.max_tokens || 120;
+        updateTempDesc(data.settings.temperature);
+        initialLoaded = true;
       }
     } catch (e) {
       document.getElementById("botBadge").classList.remove("online");
-      document.getElementById("statusLabel").textContent = "Bridge Offline";
-      document.getElementById("overviewData").textContent = "Local bridge not detected. Run python bot_bridge.py.";
+      document.getElementById("statusLabel").textContent = "Bridge offline";
+      document.getElementById("overviewData").textContent = "Local bridge not detected. Make sure the bot is running.";
     }
   }
 
-  async function saveSettings() {
-    const prompt = document.getElementById("systemPromptInput").value;
-    const temp = parseFloat(document.getElementById("tempSlider").value);
-    const tokens = parseInt(document.getElementById("tokenSlider").value);
-    const feedback = document.getElementById("settingsFeedback");
-
-    feedback.textContent = "Saving...";
+  async function pushSettings(payload, feedbackEl) {
+    feedbackEl.textContent = "Saving...";
     try {
       const res = await fetch(`${BRIDGE_URL}/settings`, {
         method: "POST",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({ system_prompt: prompt, temperature: temp, max_tokens: tokens })
+        body: JSON.stringify(payload)
       });
-
-      if (res.status === 401) {
-        lockDashboard("Session expired or password changed. Please log in again.");
-        return;
-      }
-
+      if (res.status === 401) { lockDashboard("Session expired. Log in again."); return; }
       if (res.ok) {
-        feedback.textContent = "Applied live to local model!";
-        setTimeout(() => feedback.textContent = "", 3000);
+        feedbackEl.textContent = "Saved — persists across restarts.";
+        setTimeout(() => feedbackEl.textContent = "", 3000);
+      } else {
+        feedbackEl.textContent = "Could not save.";
       }
     } catch (e) {
-      feedback.textContent = "Error saving settings to bridge.";
+      feedbackEl.textContent = "Error reaching bridge.";
     }
+  }
+
+  function savePersona() {
+    const prompt = document.getElementById("systemPromptInput").value;
+    pushSettings({ system_prompt: prompt }, document.getElementById("personaFeedback"));
+  }
+
+  function saveTuning() {
+    const temp = parseFloat(document.getElementById("tempSlider").value);
+    const tokens = parseInt(document.getElementById("tokenSlider").value);
+    pushSettings({ temperature: temp, max_tokens: tokens }, document.getElementById("tuningFeedback"));
   }
 
   async function sendBroadcast() {
     const channelId = document.getElementById("targetChannelId").value.trim();
     const msg = document.getElementById("manualMessage").value.trim();
     const feedback = document.getElementById("broadcastResult");
-
     if (!channelId || !msg) return;
 
     try {
@@ -472,15 +506,10 @@
         headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ channel_id: channelId, message: msg })
       });
-
-      if (res.status === 401) {
-        lockDashboard("Session expired or password changed. Please log in again.");
-        return;
-      }
-
+      if (res.status === 401) { lockDashboard("Session expired. Log in again."); return; }
       const data = await res.json();
       if (res.ok) {
-        feedback.textContent = "Broadcast sent!";
+        feedback.textContent = "Broadcast sent.";
         document.getElementById("manualMessage").value = "";
       } else {
         feedback.textContent = `Failed: ${data.error}`;
@@ -490,19 +519,13 @@
     }
   }
 
-  // On page load, if a key is already stored from a previous session,
-  // try it silently instead of showing the login screen again.
   (async function tryAutoLogin() {
     const key = getStoredKey();
     if (!key) return;
     try {
       const res = await fetch(`${BRIDGE_URL}/status`, { headers: authHeaders() });
-      if (res.ok) {
-        unlockDashboard();
-      }
-    } catch (e) {
-      // bridge offline - stay on login screen, no error needed yet
-    }
+      if (res.ok) unlockDashboard();
+    } catch (e) { /* stay on login screen */ }
   })();
 </script>
 
