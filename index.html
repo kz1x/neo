@@ -151,11 +151,47 @@
       border-radius: 6px;
     }
     .repo-link:hover { color: #fff; }
+
+    /* --- Login gate --- */
+    #loginOverlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .login-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px;
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      text-align: center;
+    }
+    .login-box h2 { color: var(--text); font-size: 1.1rem; text-transform: none; letter-spacing: 0; }
+    #loginError { color: var(--red); font-size: 0.8rem; min-height: 1em; }
+    .dashboard { display: none; }
   </style>
 </head>
 <body>
 
-<div class="dashboard">
+<!-- Login gate: blocks the dashboard until the correct key is entered -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <h2>🔒 Enter Access Password</h2>
+    <input type="password" id="passwordInput" placeholder="Dashboard password" onkeydown="if(event.key==='Enter') attemptLogin();" />
+    <button class="primary-btn" onclick="attemptLogin()">Unlock</button>
+    <span id="loginError"></span>
+  </div>
+</div>
+
+<div class="dashboard" id="dashboardRoot">
   <header>
     <div class="brand">
       <h1>Neo // The Goon Controller</h1>
@@ -237,6 +273,72 @@
   const BRIDGE_URL = "http://localhost:5000";
   let initialLoaded = false;
 
+  // --- Login / auth handling ---
+  // The password itself lives only in a local file on the bot owner's
+  // machine (dashboard_secret.key) - it is never present in this public
+  // source code. The browser just remembers whatever key you type in,
+  // then the Flask backend checks it against the real one on every
+  // request. Wrong key = backend rejects it with 401, no matter what.
+  function getStoredKey() {
+    return localStorage.getItem("goon_dashboard_key") || "";
+  }
+
+  function setStoredKey(key) {
+    localStorage.setItem("goon_dashboard_key", key);
+  }
+
+  function authHeaders(extra = {}) {
+    return Object.assign({ "X-API-Key": getStoredKey() }, extra);
+  }
+
+  async function attemptLogin() {
+    const input = document.getElementById("passwordInput");
+    const errorEl = document.getElementById("loginError");
+    const key = input.value.trim();
+
+    if (!key) {
+      errorEl.textContent = "Enter a password.";
+      return;
+    }
+
+    // Verify the key actually works by hitting a real protected endpoint
+    try {
+      const res = await fetch(`${BRIDGE_URL}/status`, {
+        headers: authHeaders()
+      });
+
+      // Temporarily store it to test, then confirm via response code
+      setStoredKey(key);
+      const testRes = await fetch(`${BRIDGE_URL}/status`, {
+        headers: authHeaders()
+      });
+
+      if (testRes.status === 401) {
+        errorEl.textContent = "Incorrect password.";
+        localStorage.removeItem("goon_dashboard_key");
+        return;
+      }
+
+      unlockDashboard();
+    } catch (e) {
+      errorEl.textContent = "Could not reach the bot bridge. Is it running?";
+    }
+  }
+
+  function unlockDashboard() {
+    document.getElementById("loginOverlay").style.display = "none";
+    document.getElementById("dashboardRoot").style.display = "flex";
+    pollStatus();
+    setInterval(pollStatus, 3000);
+  }
+
+  function lockDashboard(message) {
+    document.getElementById("dashboardRoot").style.display = "none";
+    document.getElementById("loginOverlay").style.display = "flex";
+    document.getElementById("loginError").textContent = message || "";
+    localStorage.removeItem("goon_dashboard_key");
+  }
+
   const presets = {
     unhinged: {
       prompt: "You are The Goon. You are an actual human in this Discord server, completely unhinged, sharp-tongued, and chaotic. You talk like an internet goblin.\n\nRules:\n1. NEVER say you are an AI, bot, assistant, or computer program. You are a real person.\n2. Write 1 or 2 complete, punchy sentences. Always finish your thoughts completely without getting cut off.\n3. Use raw internet slang, deadpan roasts, and casual profanity.\n4. Never give corporate apologies, moral lessons, or roleplay in italics.",
@@ -279,10 +381,18 @@
 
   async function pollStatus() {
     try {
-      const res = await fetch(`${BRIDGE_URL}/status`);
+      const res = await fetch(`${BRIDGE_URL}/status`, {
+        headers: authHeaders()
+      });
+
+      if (res.status === 401) {
+        lockDashboard("Session expired or password changed. Please log in again.");
+        return;
+      }
+
       if (res.ok) {
         const data = await res.json();
-        
+
         const badge = document.getElementById("botBadge");
         const label = document.getElementById("statusLabel");
         if (data.online) {
@@ -331,9 +441,15 @@
     try {
       const res = await fetch(`${BRIDGE_URL}/settings`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ system_prompt: prompt, temperature: temp, max_tokens: tokens })
       });
+
+      if (res.status === 401) {
+        lockDashboard("Session expired or password changed. Please log in again.");
+        return;
+      }
+
       if (res.ok) {
         feedback.textContent = "Applied live to local model!";
         setTimeout(() => feedback.textContent = "", 3000);
@@ -353,9 +469,15 @@
     try {
       const res = await fetch(`${BRIDGE_URL}/send`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ channel_id: channelId, message: msg })
       });
+
+      if (res.status === 401) {
+        lockDashboard("Session expired or password changed. Please log in again.");
+        return;
+      }
+
       const data = await res.json();
       if (res.ok) {
         feedback.textContent = "Broadcast sent!";
@@ -368,8 +490,20 @@
     }
   }
 
-  setInterval(pollStatus, 3000);
-  pollStatus();
+  // On page load, if a key is already stored from a previous session,
+  // try it silently instead of showing the login screen again.
+  (async function tryAutoLogin() {
+    const key = getStoredKey();
+    if (!key) return;
+    try {
+      const res = await fetch(`${BRIDGE_URL}/status`, { headers: authHeaders() });
+      if (res.ok) {
+        unlockDashboard();
+      }
+    } catch (e) {
+      // bridge offline - stay on login screen, no error needed yet
+    }
+  })();
 </script>
 
 </body>
